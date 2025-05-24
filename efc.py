@@ -116,17 +116,14 @@ def _feb_seq_dec(buf, blen, bla, prv_ilvl):
     olvl = 0
     while True:
         if ilvl > 0:
-            print('push')
             sseq, olvl, buf, blen, bla = _feb_seq_dec(buf, blen, bla, ilvl - 1)
             seq.append(sseq)
             ilvl = 0
         if olvl > 0:
-            print('pop')
             return seq, olvl - 1, buf, blen, bla
         if blen < 0:
             break
         cmd, val, buf, blen, bla = _feb_unit_dec(buf, blen, bla)
-        print(f'c{cmd}: {val} at {blen}')
         if cmd == 1:
             seq.append(val-1)
         elif cmd == 2:
@@ -179,4 +176,4 @@ if __name__ == '__main__':
         print(buf, blen, seq, dseq)
         assert seq == dseq
         return buf
-    buf = test3()
+    #buf = test3()
