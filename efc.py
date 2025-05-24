@@ -9,6 +9,9 @@ def _feb3_next(c1, c2):
 def _feb3_prev(c1, c2):
     return c2 - c1, c1
 
+def _buf_new_int():
+    return 0, 0
+
 def _buf_push_int(buf, blen, v, n):
     return (buf << n) | v, blen + n
 
@@ -21,12 +24,14 @@ def _buf_set_int(buf, v, n):
 def _buf_pop_int(buf, blen):
     return buf, blen - 1, (buf >> (blen - 1)) & 1
 
+_buf_new = _buf_new_int
 _buf_push = _buf_push_int
 _buf_push_any = _buf_push_any_int
 _buf_set = _buf_set_int
 _buf_pop = _buf_pop_int
 
 def _feb_adic_enc(src, buf, blen):
+    assert src > 0
     c1 = 1
     c2 = 1
     while True:
@@ -89,24 +94,58 @@ def _feb_unit_dec(buf, blen, bla):
     val, buf, blen, bla = _feb_adic_dec(buf, blen, bla)
     return cmd, val, buf, blen, bla
 
-def _feb_enc(seq, buf, blen):
+def _feb_seq_enc(seq, buf, blen, prv_ilvl):
+    ilvl = prv_ilvl
+    olvl = 0
     for val in seq:
+        if olvl > 0:
+            buf, blen = _feb_unit_enc(3, olvl, buf, blen)
+            olvl = 0
         if isinstance(val, list):
-            #TODO
-            pass
+            buf, blen, olvl = _feb_seq_enc(val, buf, blen, ilvl + 1)
         else:
-            buf, blen = _feb_unit_enc(1, val, buf, blen)
+            if ilvl > 0:
+                buf, blen = _feb_unit_enc(2, ilvl, buf, blen)
+            buf, blen = _feb_unit_enc(1, val+1, buf, blen)
+        ilvl = 0
+    return buf, blen, olvl + 1
+
+def _feb_seq_dec(buf, blen, bla, prv_ilvl):
+    seq = []
+    ilvl = prv_ilvl
+    olvl = 0
+    while True:
+        if ilvl > 0:
+            print('push')
+            sseq, olvl, buf, blen, bla = _feb_seq_dec(buf, blen, bla, ilvl - 1)
+            seq.append(sseq)
+            ilvl = 0
+        if olvl > 0:
+            print('pop')
+            return seq, olvl - 1, buf, blen, bla
+        if blen < 0:
+            break
+        cmd, val, buf, blen, bla = _feb_unit_dec(buf, blen, bla)
+        print(f'c{cmd}: {val} at {blen}')
+        if cmd == 1:
+            seq.append(val-1)
+        elif cmd == 2:
+            ilvl = val
+        elif cmd == 3:
+            olvl = val
+        else:
+            raise ValueError('unknown command:', cmd)
+    return seq, olvl, buf, blen, bla
+
+def _feb_enc(seq):
+    buf, blen, olvl = _feb_seq_enc(seq, *_buf_new(), 0)
+    if olvl > 0:
+        buf, blen = _feb_unit_enc(3, olvl, buf, blen)
     return buf, blen
 
-def _feb_dec(buf, blen, bla):
-    seq = []
-    while blen >= 0:
-        cmd, val, buf, blen, bla = _feb_unit_dec(buf, blen, bla)
-        if cmd == 1:
-            seq.append(val)
-        else:
-            #TODO
-            pass
+def _feb_dec(buf, blen):
+    seq, olvl, buf, blen, bla = _feb_seq_dec(*_buf_pop(buf, blen), 0)
+    assert olvl == 0 and blen == -1 and bla == 0
     return seq
 
 if __name__ == '__main__':
@@ -131,4 +170,13 @@ if __name__ == '__main__':
         print(buf, blen, seq, dseq)
         assert seq == dseq
         return buf
-    buf = test2(20)
+    #buf = test2(20)
+
+    def test3():
+        seq = [[[[1, 2], 3], 4], [5, [6, [7, [8, [9, 10]]], 11]], [[12, 13], 14, 15, [16, 17]]]
+        buf, blen = _feb_enc(seq)
+        dseq = _feb_dec(buf, blen)
+        print(buf, blen, seq, dseq)
+        assert seq == dseq
+        return buf
+    buf = test3()
