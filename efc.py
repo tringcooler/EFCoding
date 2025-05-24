@@ -145,6 +145,9 @@ def _fib_dec(buf, blen):
     assert olvl == 0 and blen == -1 and bla == 0
     return seq
 
+efc_enc = _fib_enc
+efc_dec = _fib_dec
+
 if __name__ == '__main__':
     import pdb
     from hexdump import hexdump as hd
